@@ -80,15 +80,23 @@ class Dropbox:
 
     def list_folder(self, msg_listbox):
         print("/list_folder")
-        if self._path == "/":
-            self._path = ""
+
+        # 1. Dropbox usa "" para la raíz.
+        # Usamos una variable local 'query_path' para no romper self._path permanentemente
+        query_path = self._path if self._path != "/" else ""
+
+        # 2. Asegúrate de que el nombre del token coincide con el que guardas en do_oauth
+        # Si en do_oauth usaste self._atoken, aquí debe ser self._atoken
+        token = getattr(self, '_access_token', getattr(self, '_atoken', None))
+
         headers = {
-        'Authorization': f'Bearer {self._access_token}',
-        'Content-Type': 'application/json'
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
         }
+
         url = 'https://api.dropboxapi.com/2/files/list_folder'
         data = {
-            'path': self._path,
+            'path': query_path,
             'recursive': False,
             'include_media_info': False,
             'include_deleted': False,
@@ -96,10 +104,18 @@ class Dropbox:
             'include_mounted_folders': True,
             'include_non_downloadable_files': True
         }
-        response = requests.post(url, headers=headers, json=data)
-        contenido_json = json.loads(response.content)
 
-        self._files = helper.update_listbox2(msg_listbox, self._path, contenido_json)
+        response = requests.post(url, headers=headers, json=data)
+
+        # 3. Verificación de seguridad antes de parsear el JSON
+        if response.status_code == 200:
+            contenido_json = response.json()
+            # Actualizamos la lista usando tu helper
+            self._files = helper.update_listbox2(msg_listbox, self._path, contenido_json)
+        else:
+            print(f"Error de Dropbox ({response.status_code}): {response.text}")
+            # Si el error es 409 es que el path es inválido (ej: enviar "/" en vez de "")
+            # Si el error es 401 es que el token no es válido
 
     def transfer_file(self, file_path, file_data):
         print("/upload")
