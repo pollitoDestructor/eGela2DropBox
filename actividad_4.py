@@ -6,6 +6,7 @@ import Dropbox
 import helper
 import time
 from urllib.parse import unquote
+import requests
 
 ##########################################################################################################
 
@@ -43,7 +44,6 @@ def transfer_files():
             path = "/" + unquote(pdf_name)
             print ("----------------------: "+ pdf_name)
             print("----------------------: " + unquote(pdf_name))
-
         else:
             path = dropbox._path + "/" + pdf_name
         dropbox.transfer_file(path, pdf_file)
@@ -95,7 +95,8 @@ def create_folder():
     popup = tk.Toplevel(newroot)
     popup.geometry('200x100')
     popup.title('Dropbox')
-    popup.iconbitmap('./favicon.ico')
+    if os.name == 'nt':
+        popup.iconbitmap('favicon.ico')
     helper.center(popup)
 
     login_frame = tk.Frame(popup, padx=10, pady=10)
@@ -104,17 +105,109 @@ def create_folder():
     label = tk.Label(login_frame, text="Create folder")
     label.pack(side=tk.TOP)
     entry_field = tk.Entry(login_frame, width=35)
-    entry_field.bind("<Return>", name_folder)
+    #entry_field.bind("<Return>", name_folder)
     entry_field.pack(side=tk.TOP)
     send_button = tk.Button(login_frame, text="Send", command=lambda: name_folder(entry_field.get()))
     send_button.pack(side=tk.TOP)
     dropbox._root = popup
 
+def share_files():
+    files = []
+    for each in selected_items2:
+        if dropbox._path == "/":
+            path = "/" + dropbox._files[each]['name']
+            files.append(path)
+        else:
+            path = dropbox._path + "/" + dropbox._files[each]['name']
+            files.append(path)
+    links = dropbox.share_files(files)
 
+    popup = tk.Toplevel(newroot)
+    popup.geometry('1200x' + str(50+(len(files) * 25)))
+    popup.title('Dropbox')
+    if os.name == 'nt':
+        popup.iconbitmap('favicon.ico')
+    helper.center(popup)
+
+    login_frame = tk.Frame(popup, padx=10, pady=10)
+    login_frame.pack(fill=tk.BOTH, expand=True)
+
+    label = tk.Label(login_frame, text="Share files")
+    label.pack(side=tk.TOP)
+    for link in links:
+        label = tk.Label(login_frame, text=link)
+        label.pack(side=tk.TOP)
+        label.bind("<Button-1>", lambda event, url=link: helper.open_url(url))
+        label.config(cursor="hand2", fg="blue", underline=True)
+    dropbox._root = popup
+
+def download_files():
+    files = []
+    for each in selected_items2:
+        if dropbox._path == "/":
+            path = "/" + dropbox._files[each]['name']
+            files.append(path)
+        else:
+            path = dropbox._path + "/" + dropbox._files[each]['name']
+            files.append(path)
+    resultado=dropbox.download_file(files)
+    if resultado:
+        popup = tk.Toplevel(newroot)
+        popup.geometry('200x100')
+        popup.title('Dropbox')
+        if os.name == 'nt':
+            popup.iconbitmap('favicon.ico')
+        helper.center(popup)
+        label = tk.Label(popup, text="Files downloaded successfully")
+        label.pack(side=tk.TOP)
+        button = tk.Button(popup, text="Close", command=popup.destroy)
+        button.pack(side=tk.BOTTOM)
+    else:
+        popup = tk.Toplevel(newroot)
+        popup.geometry('200x100')
+        popup.title('Dropbox')
+        if os.name == 'nt':
+            popup.iconbitmap('favicon.ico')
+        helper.center(popup)
+        label = tk.Label(popup, text="Error downloading files")
+        label.pack(side=tk.TOP)
+        button = tk.Button(popup, text="Close", command=popup.destroy)
+        button.pack(side=tk.BOTTOM)
+
+def whoami():
+    info = dropbox.whoami()
+    if info==None:
+        popup = tk.Toplevel(newroot)
+        popup.geometry('200x100')
+        popup.title('Dropbox')
+        if os.name == 'nt':
+            popup.iconbitmap('favicon.ico')
+        helper.center(popup)
+        label = tk.Label(popup, text="Error obtaining user info")
+        label.pack(side=tk.TOP)
+        button = tk.Button(popup, text="Close", command=popup.destroy)
+        button.pack(side=tk.BOTTOM)
+    else:
+        popup = tk.Toplevel(newroot)
+        popup.geometry('200x100')
+        popup.title('Dropbox')
+        if os.name == 'nt':
+            popup.iconbitmap('favicon.ico')
+        helper.center(popup)
+        label = tk.Label(popup, text="User info obtained successfully")
+        label.pack(side=tk.TOP)
+        # El nombre
+        label = tk.Label(popup, text="Name: " + info['name']['display_name'])
+        label.pack(side=tk.TOP)
+        # El email
+        label = tk.Label(popup, text="Email: " + info['email'])
+        label.pack(side=tk.TOP)
+        button = tk.Button(popup, text="Close", command=popup.destroy)
+        button.pack(side=tk.BOTTOM)
 ##########################################################################################################
 
 def check_credentials(event= None):
-    egela.check_credentials(username, password)
+    egela.check_credentials(username, ldapuser, ldapass)
 
 def on_selecting1(event):
     global selected_items1
@@ -146,8 +239,9 @@ def on_double_clicking2(event):
 ##########################################################################################################
 # Login eGela
 root = tk.Tk()
-root.geometry('250x150')
-root.iconbitmap('./favicon.ico') #
+root.geometry('250x200')
+if os.name == 'nt':
+    root.iconbitmap('favicon.ico')
 root.title('Login eGela')
 helper.center(root)
 egela = eGela.eGela(root)
@@ -156,8 +250,9 @@ login_frame = tk.Frame(root, padx=10, pady=10)
 login_frame.pack(fill=tk.BOTH, expand=True)
 
 username = make_entry(login_frame, "User name:", 16)
-password = make_entry(login_frame, "Password:", 16, show="*")
-password.bind("<Return>", check_credentials)
+ldapuser = make_entry(login_frame, "LDAP user:", 16)
+ldapass = make_entry(login_frame, "LDAP password:", 16, show="*")
+ldapass.bind("<Return>", check_credentials)
 
 button = tk.Button(login_frame, borderwidth=4, text="Login", width=10, pady=8, command=check_credentials)
 button.pack(side=tk.BOTTOM)
@@ -173,7 +268,8 @@ pdfs = egela.get_pdf_refs()
 # Login Dropbox
 root = tk.Tk()
 root.geometry('250x100')
-root.iconbitmap('./favicon.ico')
+if os.name == 'nt':
+    root.iconbitmap('favicon.ico')
 root.title('Login Dropbox')
 helper.center(root)
 
@@ -194,7 +290,8 @@ root.mainloop()
 
 newroot = tk.Tk()
 newroot.geometry("850x400")
-newroot.iconbitmap('./favicon.ico') #
+if os.name == 'nt':
+    newroot.iconbitmap('favicon.ico')
 newroot.title("eGela -> Dropbox") #
 helper.center(newroot)
 
@@ -246,10 +343,18 @@ messages_frame2.grid(row=1, column=2, ipadx=10, ipady=10, padx=2, pady=2)
 # Frame con botones Create y Delete (1,3)
 
 frame2 = tk.Frame(newroot)
-button2 = tk.Button(frame2, borderwidth=4,  background="#C6185C",fg="white", text="Delete", width=10, pady=8, command=delete_files)
+button2 = tk.Button(frame2, borderwidth=4, background="red", text="Delete", width=10, pady=8, command=delete_files)
 button2.pack(padx=2, pady=2)
-button3 = tk.Button(frame2, borderwidth=4, background="#7C86FF",fg="white", text="Create folder", width=10, pady=8, command=create_folder)
+button3 = tk.Button(frame2, borderwidth=4, text="Create folder", width=10, pady=8, command=create_folder)
 button3.pack(padx=2, pady=2)
+button4 = tk.Button(frame2, borderwidth=4, text="Share link", width=10, pady=8, command=share_files)
+button4.pack(padx=2, pady=2)
+button5 = tk.Button(frame2, borderwidth=4, text="Open file", width=10, pady=8, command=lambda: helper.open_url("https://www.dropbox.com/preview/Aplicaciones/SW_2024" + dropbox._path + '/' + dropbox._files[selected_items2[0]]['name']))
+button5.pack(padx=2, pady=2)
+button6 = tk.Button(frame2, borderwidth=4, text="Download file", width=10, pady=8, command=download_files)
+button6.pack(padx=2, pady=2)
+button7 = tk.Button(frame2, borderwidth=4, text="Whoami", width=10, pady=8, command=whoami)
+button7.pack(padx=2, pady=2)
 frame2.grid(row=1, column=3,  ipadx=10, ipady=10)
 
 for each in pdfs:

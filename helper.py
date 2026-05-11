@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+import os
 
 def center(win):
     win.update_idletasks()
@@ -22,7 +23,8 @@ def progress(tipo, title):
         popup = tk.Toplevel()
     popup.geometry('250x50')
     popup.title(title)
-    popup.iconbitmap('./favicon.ico')
+    if os.name == 'nt':
+        popup.iconbitmap('favicon.ico')
     center(popup)
     label = tk.Label(popup, text=title)
     label.grid(row=0, column=0)
@@ -45,13 +47,17 @@ def update_listbox2(msg_listbox, path, edukia_json):
                             'name': "..",
                             '.tag': "folder"})
         msg_listbox.insert(tk.END, "..")
-        msg_listbox.itemconfigure(tk.END, background="#C6185C")
+        msg_listbox.itemconfigure(tk.END, background="red")
 
     for each in edukia_json['entries']:
         msg_listbox.insert(tk.END, each['name'])
         if each['.tag'] == "folder":
-            msg_listbox.itemconfigure(tk.END, background="#7C86FF")
+            msg_listbox.itemconfigure(tk.END, background="green")
         files.append({'id': each['id'],
                             'name': each['name'],
                             '.tag': each['.tag']})
     return files
+
+def open_url(url):
+    import webbrowser
+    webbrowser.open(url)
