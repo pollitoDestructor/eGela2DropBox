@@ -4,8 +4,11 @@ import webbrowser
 from socket import AF_INET, socket, SOCK_STREAM
 import json
 
-app_key = ''
-app_secret = '' #TODO que lea el archivo
+with open('app_keys.json') as json_file:
+    data = json.load(json_file)
+    app_key = data['app_key']
+    app_secret = data['app_secret']
+
 redirect_uri = "http://localhost:8090"
 ########################l##########################################################
 # CODE: Abrir en el navegador la URI https://www.dropbox.com/oauth2/authorize #
