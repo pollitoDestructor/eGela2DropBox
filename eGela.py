@@ -162,9 +162,81 @@ class eGela:
         # Y PROCESAMIENTO DE LA RESPUESTA HTTP
         #############################################
 
-        #progress_step = float(100.0 / len(NUMERO_DE_PDF_EN_EGELA))
+        metodo = 'POST'
+        uri = self._curso
+        cabeceras = {'Host': "egela.ehu.eus",
+                     'Cookie': "MoodleSessionegela=" + self._cookie}
+        cuerpo = ''
+
+        print(metodo + ' ' + uri)
+        print(cuerpo)
+
+        cabeceras['Content-Length'] = str(len(cuerpo))
+        respuesta5 = requests.request(metodo, uri, headers=cabeceras, data=cuerpo, allow_redirects=False)
+
+        codigo = respuesta5.status_code
+        descripcion = respuesta5.reason
+        print(str(codigo) + ' ' + descripcion)
+
+        #BUSCAR LINKS A LAS DIFERENTES PESTAÑAS
+        ref_doc = bs4.BeautifulSoup(respuesta5.content, 'html.parser')  # apunta a raiz del arbol
+        tabla_tabs = ref_doc.find_all('ul', {'class': 'nav nav-tabs mb-3 format_onetopic-tabs'})
+        tabs = tabla_tabs[0].find_all('li')
 
         print("\n##### Analisis del HTML... #####")
+
+        print('Analizando archivos...')
+        for tab in tabs:
+            link_tab = tab.find_all('a')[0]['href']
+
+            metodo = 'POST'
+            uri = link_tab
+            cabeceras = {'Host': "egela.ehu.eus",
+                         'Cookie': "MoodleSessionegela=" + self._cookie}
+            cuerpo = ''
+
+            print(metodo + ' ' + uri)
+            print(cuerpo)
+
+            cabeceras['Content-Length'] = str(len(cuerpo))
+            respuesta6 = requests.request(metodo, uri, headers=cabeceras, data=cuerpo, allow_redirects=False)
+
+            codigo = respuesta6.status_code
+            descripcion = respuesta6.reason
+            print(str(codigo) + ' ' + descripcion)
+            ref_doc = bs4.BeautifulSoup(respuesta6.content, 'html.parser')
+            docs = ref_doc.find_all('a', {'class': 'aalink stretched-link'})
+            if len(docs) > 0:
+                progress_step = float((100.0 / len(tabs))/len(docs))
+            for doc in docs:
+                link_doc = doc['href']
+                nombre_doc = doc.find_all('span')[0].get_text().split("  Archivo")[0]
+                metodo = 'POST'
+                uri = link_doc
+                cabeceras = {'Host': "egela.ehu.eus",
+                             'Cookie': "MoodleSessionegela=" + self._cookie}
+                cuerpo = ''
+
+                print(metodo + ' ' + uri)
+                print(cuerpo)
+
+                cabeceras['Content-Length'] = str(len(cuerpo))
+                respuesta7 = requests.request(metodo, uri, headers=cabeceras, data=cuerpo, allow_redirects=False)
+
+                codigo = respuesta7.status_code
+                descripcion = respuesta7.reason
+                print(str(codigo) + ' ' + descripcion)
+                try:
+                    link_doc_n = respuesta7.headers['Location']
+                except:
+                    link_doc_n = ''
+                if link_doc_n.find('.pdf') != -1:
+                    self._refs.append({nombre_doc: link_doc_n})
+                progress += progress_step
+                progress_var.set(progress)
+                progress_bar.update()
+                print(self._refs)
+
         #############################################
         # ANALISIS DE LA PAGINA DEL AULA EN EGELA
         # PARA BUSCAR PDFs
