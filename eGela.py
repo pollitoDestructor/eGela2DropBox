@@ -231,7 +231,7 @@ class eGela:
                 except:
                     link_doc_n = ''
                 if link_doc_n.find('.pdf') != -1:
-                    self._refs.append({nombre_doc: link_doc_n})
+                    self._refs.append({'pdf_name':nombre_doc, 'pdf_ref': link_doc_n})
                 progress += progress_step
                 progress_var.set(progress)
                 progress_bar.update()
