@@ -41,9 +41,8 @@ def transfer_files():
 
         if dropbox._path == "/":
             path = "/" + unquote(pdf_name)
-            print ("----------------------: "+ pdf_name)
+            print("----------------------: " + pdf_name)
             print("----------------------: " + unquote(pdf_name))
-
         else:
             path = dropbox._path + "/" + pdf_name
         dropbox.transfer_file(path, pdf_file)
@@ -71,7 +70,7 @@ def delete_files():
             path = "/" + dropbox._files[each]['name']
         else:
             path = dropbox._path + "/" + dropbox._files[each]['name']
-            print (path)
+            print(path)
         dropbox.delete_file(path)
 
         progress += progress_step
@@ -95,7 +94,8 @@ def create_folder():
     popup = tk.Toplevel(newroot)
     popup.geometry('200x100')
     popup.title('Dropbox')
-    popup.iconbitmap('./favicon.ico')
+    if os.name == 'nt':
+        popup.iconbitmap('favicon.ico')
     helper.center(popup)
 
     login_frame = tk.Frame(popup, padx=10, pady=10)
@@ -104,29 +104,36 @@ def create_folder():
     label = tk.Label(login_frame, text="Create folder")
     label.pack(side=tk.TOP)
     entry_field = tk.Entry(login_frame, width=35)
-    entry_field.bind("<Return>", name_folder)
+    # entry_field.bind("<Return>", name_folder)
     entry_field.pack(side=tk.TOP)
     send_button = tk.Button(login_frame, text="Send", command=lambda: name_folder(entry_field.get()))
     send_button.pack(side=tk.TOP)
     dropbox._root = popup
 
+# Nueva función para realizar búsquedas
+def ejecutar_busqueda():
+    palabra = entrada_buscar.get()
+    resultados = egela.search_pdfs(palabra)
+    msg_listbox1.delete(0, tk.END) # Limpia los PDFs actuales
+    for res in resultados:
+        msg_listbox1.insert(tk.END, res['pdf_name']) # Inserta los PDFs filtrados
 
 ##########################################################################################################
 
-def check_credentials(event= None):
-    egela.check_credentials(username, password)
+def check_credentials(event=None):
+    egela.check_credentials(ldapuser, ldapass)
 
 def on_selecting1(event):
     global selected_items1
     widget = event.widget
     selected_items1 = widget.curselection()
-    print (selected_items1)
+    print(selected_items1)
 
 def on_selecting2(event):
     global selected_items2
     widget = event.widget
     selected_items2 = widget.curselection()
-    print (selected_items2)
+    print(selected_items2)
 
 def on_double_clicking2(event):
     widget = event.widget
@@ -143,11 +150,13 @@ def on_double_clicking2(event):
                 dropbox._path = dropbox._path + '/' + selected_file['name']
     var.set(dropbox._path)
     dropbox.list_folder(msg_listbox2)
+
 ##########################################################################################################
 # Login eGela
 root = tk.Tk()
-root.geometry('300x250') # Un poco más alto para que quepan 3 campos
-root.iconbitmap('./favicon.ico')
+root.geometry('250x200')
+if os.name == 'nt':
+    root.iconbitmap('favicon.ico')
 root.title('Login eGela')
 helper.center(root)
 egela = eGela.eGela(root)
@@ -155,18 +164,11 @@ egela = eGela.eGela(root)
 login_frame = tk.Frame(root, padx=10, pady=10)
 login_frame.pack(fill=tk.BOTH, expand=True)
 
-# Añadimos los 3 campos que pide tu clase eGela
-username = make_entry(login_frame, "Nombre Completo (para verificar):", 20)
-ldap_user = make_entry(login_frame, "LDAP User:", 20)
-ldap_pass = make_entry(login_frame, "LDAP Password:", 20, show="*")
+ldapuser = make_entry(login_frame, "LDAP user:", 16)
+ldapass = make_entry(login_frame, "LDAP password:", 16, show="*")
+ldapass.bind("<Return>", check_credentials)
 
-# Función intermedia para pasar los argumentos correctamente
-def login_command(event=None):
-    egela.check_credentials(username, ldap_user, ldap_pass)
-
-ldap_pass.bind("<Return>", login_command)
-
-button = tk.Button(login_frame, borderwidth=4, text="Login", width=10, pady=8, command=login_command)
+button = tk.Button(login_frame, borderwidth=4, text="Login", width=10, pady=8, command=check_credentials)
 button.pack(side=tk.BOTTOM)
 
 root.mainloop()
@@ -180,7 +182,8 @@ pdfs = egela.get_pdf_refs()
 # Login Dropbox
 root = tk.Tk()
 root.geometry('250x100')
-root.iconbitmap('./favicon.ico')
+if os.name == 'nt':
+    root.iconbitmap('favicon.ico')
 root.title('Login Dropbox')
 helper.center(root)
 
@@ -201,8 +204,9 @@ root.mainloop()
 
 newroot = tk.Tk()
 newroot.geometry("850x400")
-newroot.iconbitmap('./favicon.ico') #
-newroot.title("eGela -> Dropbox") #
+if os.name == 'nt':
+    newroot.iconbitmap('favicon.ico')
+newroot.title("eGela -> Dropbox")  #
 helper.center(newroot)
 
 newroot.rowconfigure(0, weight=1)
@@ -212,17 +216,26 @@ newroot.columnconfigure(1, weight=1)
 newroot.columnconfigure(2, weight=6)
 newroot.columnconfigure(3, weight=1)
 
-# Etigueta PDFs en Sistemas Web (0,0)   #
+# Cabecera eGela con Buscador
+frame_cabecera_egela = tk.Frame(newroot)
+frame_cabecera_egela.grid(row=0, column=0, sticky="nsew")
+
 var2 = tk.StringVar()
 var2.set("PDFs en Sistemas Web")
-label2 = tk.Label(newroot, textvariable=var2)
-label2.grid(column=0, row=0, ipadx=5, ipady=5)
+label2 = tk.Label(frame_cabecera_egela, textvariable=var2)
+label2.pack(side=tk.LEFT, padx=10)
+
+# El buscador pegado a la derecha del nombre
+entrada_buscar = tk.Entry(frame_cabecera_egela, width=15)
+entrada_buscar.pack(side=tk.LEFT, padx=5)
+btn_buscar = tk.Button(frame_cabecera_egela, text="🔍", command=ejecutar_busqueda)
+btn_buscar.pack(side=tk.LEFT)
 
 # Etigueta del directorio de Dropbox (0,2)
 var = tk.StringVar()
 var.set(dropbox._path)
 label = tk.Label(newroot, textvariable=var)
-label.grid( row=0, column=2, ipadx=5, ipady=5)
+label.grid(row=0, column=2, ipadx=5, ipady=5)
 
 # Frame con lista de PDFs e eGela (1,0)
 selected_items1 = None
@@ -230,8 +243,8 @@ messages_frame1 = tk.Frame(newroot)
 msg_listbox1 = make_listbox(messages_frame1)
 msg_listbox1.bind('<<ListboxSelect>>', on_selecting1)
 msg_listbox1.pack(side=tk.LEFT, fill=tk.BOTH)
-#messages_frame1.pack()
-messages_frame1.grid(row=1, column=0, ipadx=10, ipady=10, padx=2, pady=2) #
+# messages_frame1.pack()
+messages_frame1.grid(row=1, column=0, ipadx=10, ipady=10, padx=2, pady=2)  #
 
 # Frame con boton >>> (1,1)
 frame1 = tk.Frame(newroot)
@@ -247,17 +260,17 @@ msg_listbox2.bind('<<ListboxSelect>>', on_selecting2)
 msg_listbox2.bind('<Double-Button-1>', on_double_clicking2)
 msg_listbox2.pack(side=tk.RIGHT, fill=tk.BOTH)
 
-#messages_frame2.pack()
+# messages_frame2.pack()
 messages_frame2.grid(row=1, column=2, ipadx=10, ipady=10, padx=2, pady=2)
 
 # Frame con botones Create y Delete (1,3)
 
 frame2 = tk.Frame(newroot)
-button2 = tk.Button(frame2, borderwidth=4,  background="#C6185C",fg="white", text="Delete", width=10, pady=8, command=delete_files)
+button2 = tk.Button(frame2, borderwidth=4, background="red", text="Delete", width=10, pady=8, command=delete_files)
 button2.pack(padx=2, pady=2)
-button3 = tk.Button(frame2, borderwidth=4, background="#7C86FF",fg="white", text="Create folder", width=10, pady=8, command=create_folder)
+button3 = tk.Button(frame2, borderwidth=4, text="Create folder", width=10, pady=8, command=create_folder)
 button3.pack(padx=2, pady=2)
-frame2.grid(row=1, column=3,  ipadx=10, ipady=10)
+frame2.grid(row=1, column=3, ipadx=10, ipady=10)
 
 for each in pdfs:
     msg_listbox1.insert(tk.END, each['pdf_name'])

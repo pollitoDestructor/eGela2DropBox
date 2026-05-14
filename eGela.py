@@ -1,8 +1,6 @@
 # -*- coding: UTF-8 -*-
-from http.cookiejar import Cookie
 from tkinter import messagebox
 import requests
-import urllib.parse
 import bs4
 import time
 import helper
@@ -18,9 +16,8 @@ class eGela:
     def __init__(self, root):
         self._root = root
 
-    def check_credentials(self, username, ldapuser, ldappass, event=None):
-        # Sacamos el username del objeto tk.Entry
-        username = username.get().upper()
+    def check_credentials(self, ldapuser, ldappass, event=None):
+        # Obtener los datos de sesión
         ldapuser = ldapuser.get()
         ldappass = ldappass.get()
 
@@ -38,10 +35,8 @@ class eGela:
         print(f'Respuesta1:\n\t{respuesta1.status_code} {respuesta1.reason}')
 
         if respuesta1.status_code == 200:
-            ## Obtenemos la MoodleSessionegela y el logintoken
-            ### Cabecera SetCookie: MoodleSessionegela
+            # Obtenemos la MoodleSessionegela y el logintoken
             MoodleSessionegela = respuesta1.headers['Set-Cookie'].split('MoodleSessionegela=')[1].split(';')[0]
-            ### logintoken campo input del fomulario
             logintoken = respuesta1.text.split('logintoken" value="')[1].split('"')[0]
         else:
             print("Error al obtener MoodleSessionegela y logintoken.")
@@ -87,7 +82,7 @@ class eGela:
         progress_bar.update()
         time.sleep(1)
 
-        # Tercera peticion - Validar la sesion
+        # Tercera peticion - Validar la sesión
         metodo = 'GET'
         uri = location
         cabeceras = {
@@ -115,7 +110,7 @@ class eGela:
         time.sleep(1)
         popup.destroy()
 
-        # Cuarta peticion - Acceder a eGela y buscar mi nombre
+        # Cuarta petición - Acceder a eGela
         metodo = 'GET'
         uri = location
         cabeceras = {
@@ -134,21 +129,19 @@ class eGela:
         popup.destroy()
 
         if respuesta4.status_code == 200:
-            # Buscamos mi nombre dentro del div class="logininfo"
-            if username in respuesta4.text:
-                soup = bs4.BeautifulSoup(respuesta4.text, 'html.parser')
-                enlaces = soup.find_all('a')
-                for enlace in enlaces:
-                    if "Sistemas Web" in enlace.text:
-                        link_asignatura = enlace.get('href')
-                print("Autenticacion correcta.")
-                self._root.destroy()
-                self._login = 1
-                self._cookie = MoodleSessionegela
-                self._curso = link_asignatura
-            else:
-                messagebox.showinfo("Alert Message", "Login incorrect!")
-                exit(1)
+            soup = bs4.BeautifulSoup(respuesta4.text, 'html.parser')
+            enlaces = soup.find_all('a')
+            for enlace in enlaces:
+                if "Sistemas Web" in enlace.text:
+                    link_asignatura = enlace.get('href')
+            print("Autenticacion correcta.")
+            self._root.destroy()
+            self._login = 1
+            self._cookie = MoodleSessionegela
+            self._curso = link_asignatura
+        else:
+            messagebox.showinfo("Alert Message", "Login incorrect!")
+            exit(1)
 
     def get_pdf_refs(self):
         popup, progress_var, progress_bar = helper.progress("get_pdf_refs", "Downloading PDF list...")
@@ -156,111 +149,90 @@ class eGela:
         progress_var.set(progress)
         progress_bar.update()
 
-        print("\n##### 4. PETICION (Página principal de la asignatura en eGela) #####")
-        #############################################
-        # RELLENAR CON CODIGO DE LA PETICION HTTP
-        # Y PROCESAMIENTO DE LA RESPUESTA HTTP
-        #############################################
+        # Obtener las secciones/temas
+        metodo = 'GET'
+        uri = self._curso  # Usamos la URL base guardada en el login
+        cabeceras = {'Cookie': f'MoodleSessionegela={self._cookie}'}
 
-        metodo = 'POST'
-        uri = self._curso
-        cabeceras = {'Host': "egela.ehu.eus",
-                     'Cookie': "MoodleSessionegela=" + self._cookie}
-        cuerpo = ''
+        secciones = {}
+        respuesta = requests.request(metodo, uri, headers=cabeceras, allow_redirects=False)
 
-        print(metodo + ' ' + uri)
-        print(cuerpo)
+        if respuesta.status_code == 200:
+            soup = bs4.BeautifulSoup(respuesta.text, 'html.parser')
+            # Buscamos los enlaces de las secciones
+            enlaces_temas = soup.find_all('a', {'class': 'nav-link'})
 
-        cabeceras['Content-Length'] = str(len(cuerpo))
-        respuesta5 = requests.request(metodo, uri, headers=cabeceras, data=cuerpo, allow_redirects=False)
+            for rdo in enlaces_temas:
+                nombreTema = rdo.get('title') or rdo.text.strip()
+                enlace = rdo.get('href')
+                if enlace and "section=" in enlace:  # Filtramos para que sean secciones
+                    secciones[nombreTema] = enlace
 
-        codigo = respuesta5.status_code
-        descripcion = respuesta5.reason
-        print(str(codigo) + ' ' + descripcion)
+        # Si no encuentra secciones
+        if not secciones:
+            secciones["Principal"] = self._curso
 
-        #BUSCAR LINKS A LAS DIFERENTES PESTAÑAS
-        ref_doc = bs4.BeautifulSoup(respuesta5.content, 'html.parser')  # apunta a raiz del arbol
-        tabla_tabs = ref_doc.find_all('ul', {'class': 'nav nav-tabs mb-3 format_onetopic-tabs'})
-        tabs = tabla_tabs[0].find_all('li')
+        # Iterar por cada sección para buscar PDFs
 
-        print("\n##### Analisis del HTML... #####")
+        prog_step = 100 / len(secciones) if secciones else 100 # Calculamos el incremento de la barra según el número de secciones
 
-        print('Analizando archivos...')
-        for tab in tabs:
-            link_tab = tab.find_all('a')[0]['href']
+        for nombreTema, url_seccion in secciones.items():
+            res_sec = requests.request('GET', url_seccion, headers=cabeceras, allow_redirects=False)
+            if res_sec.status_code == 200:
+                soup_sec = bs4.BeautifulSoup(res_sec.text, 'html.parser')
 
-            metodo = 'POST'
-            uri = link_tab
-            cabeceras = {'Host': "egela.ehu.eus",
-                         'Cookie': "MoodleSessionegela=" + self._cookie}
-            cuerpo = ''
+                # Buscamos el contenedor de actividades
+                divs_actividad = soup_sec.find_all('div', {'class': 'activity-instance d-flex flex-column'})
 
-            print(metodo + ' ' + uri)
-            print(cuerpo)
+                for div in divs_actividad:
+                    img = div.find('img')
+                    # Verificamos si es un PDF por el icono o el texto
+                    if img and 'pdf' in img.get('src', ''):
+                        a = div.find('a')
+                        if a:
+                            pdf_link = a['href']
+                            # Limpiamos el nombre del archivo
+                            name = a.find('span').text.split(' Archivo')[0].strip().replace('/', ' ')
 
-            cabeceras['Content-Length'] = str(len(cuerpo))
-            respuesta6 = requests.request(metodo, uri, headers=cabeceras, data=cuerpo, allow_redirects=False)
+                            # Evitar duplicados
+                            if not any(d['pdf_link'] == pdf_link for d in self._refs):
+                                self._refs.append({'pdf_name': name, 'pdf_link': pdf_link})
 
-            codigo = respuesta6.status_code
-            descripcion = respuesta6.reason
-            print(str(codigo) + ' ' + descripcion)
-            ref_doc = bs4.BeautifulSoup(respuesta6.content, 'html.parser')
-            docs = ref_doc.find_all('a', {'class': 'aalink stretched-link'})
-            if len(docs) > 0:
-                progress_step = float((100.0 / len(tabs))/len(docs))
-            for doc in docs:
-                link_doc = doc['href']
-                nombre_doc = doc.find_all('span')[0].get_text().split("  Archivo")[0]
-                metodo = 'POST'
-                uri = link_doc
-                cabeceras = {'Host': "egela.ehu.eus",
-                             'Cookie': "MoodleSessionegela=" + self._cookie}
-                cuerpo = ''
-
-                print(metodo + ' ' + uri)
-                print(cuerpo)
-
-                cabeceras['Content-Length'] = str(len(cuerpo))
-                respuesta7 = requests.request(metodo, uri, headers=cabeceras, data=cuerpo, allow_redirects=False)
-
-                codigo = respuesta7.status_code
-                descripcion = respuesta7.reason
-                print(str(codigo) + ' ' + descripcion)
-                try:
-                    link_doc_n = respuesta7.headers['Location']
-                except:
-                    link_doc_n = ''
-                if link_doc_n.find('.pdf') != -1:
-                    self._refs.append({'pdf_name':nombre_doc, 'pdf_ref': link_doc_n})
-                progress += progress_step
-                progress_var.set(progress)
-                progress_bar.update()
-                print(self._refs)
-
-        #############################################
-        # ANALISIS DE LA PAGINA DEL AULA EN EGELA
-        # PARA BUSCAR PDFs
-        #############################################
-
-        # INICIALIZA Y ACTUALIZAR BARRA DE PROGRESO
-        # POR CADA PDF ANIADIDO EN self._refs
-
-        #progress_step = float(100.0 / len(NUMERO_DE_PDF_EN_EGELA))
-
-        #progress += progress_step
-        progress_var.set(progress)
-        progress_bar.update()
-        time.sleep(0.1)
+            progress += prog_step
+            progress_var.set(min(progress, 100))
+            progress_bar.update()
 
         popup.destroy()
         return self._refs
 
-
     def get_pdf(self, selection):
-        print("\t##### descargando  PDF... #####")
-        #############################################
-        # RELLENAR CON CODIGO DE LA PETICION HTTP
-        # Y PROCESAMIENTO DE LA RESPUESTA HTTP
-        #############################################
+        print("\t##### descargando PDF... #####")
 
-        return #pdf_name, pdf_content
+        # Preparar cabeceras y datos del objeto seleccionado
+        cabeceras = {'Cookie': f'MoodleSessionegela={self._cookie}'}
+        pdf_object = self._refs[selection]
+
+        pdf_name = pdf_object['pdf_name'] + ".pdf"
+        pdf_url = pdf_object['pdf_link']
+
+        # Petición al enlace de eGela para obtener la redirección (Location)
+        res_redireccion = requests.request('GET', pdf_url, headers=cabeceras, allow_redirects=False)
+        url_final = res_redireccion.headers['Location']
+
+        # Petición final para descargar el contenido del PDF
+        res_final = requests.request('GET', url_final, headers=cabeceras, allow_redirects=False)
+
+        return pdf_name, res_final.content
+
+    # Función para las búsquedas
+    def search_pdfs(self, keyword):
+        """
+        Filtra la lista de PDFs descargados que coincidan con una palabra clave.
+        """
+        print(f"\t##### Buscando archivos con: '{keyword}' #####")
+        results = [ref for ref in self._refs if keyword.lower() in ref['pdf_name'].lower()]
+
+        if not results:
+            print(f"No se han encontrado archivos que coincidan con '{keyword}'")
+
+        return results
