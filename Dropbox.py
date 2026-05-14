@@ -4,7 +4,6 @@ import webbrowser
 from socket import AF_INET, socket, SOCK_STREAM
 import json
 import helper
-import os
 import time
 
 # Cargo las credenciales de la aplicacion
@@ -173,84 +172,25 @@ class Dropbox:
             print("Error creating folder.")
             print(response.content)
 
-    def share_files(self, files):
-        # Obtenemos el link para compartir
-        # https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings
-        print("/share_file")
-        uri = 'https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings'
+    def get_storage_usage(self):
+        print("/get_space_usage")
+        uri = 'https://api.dropboxapi.com/2/users/get_space_usage'
         headers = {
             'Authorization': f'Bearer {self._access_token}',
             'Content-Type': 'application/json'
         }
-        links = []
-        for file in files:
-            data = {
-                'path': file,
-                "settings": {
-                    "access": "viewer",
-                    "allow_download": True,
-                    "audience": "public",
-                    "requested_visibility": "public"
-                }
-            }
-            response = requests.post(uri, headers=headers, json=data)
-            if response.status_code == 200:
-                print("File shared successfully.")
-                # Obtenemos el link
-                link = json.loads(response.content)['url']
-                links.append(link)
-            else:
-                print("Already exist.")
-                # Pide el link
-                # https://content.dropboxapi.com/2/sharing/get_shared_link_file
-                data = {
-                    'path': file
-                }
-                response = requests.post(uri, headers=headers, json=data)
-                print(response.status_code)
-                if response.status_code == 409:
-                    print("File shared successfully.")
-                    # Obtenemos el link
-                    link = json.loads(response.content)['error']['shared_link_already_exists']['metadata']['url']
-                    links.append(link)
-                else:
-                    print("Error sharing file.")
-                    print(response.content)
-        return links
+        # Esta petición no necesita cuerpo
+        response = requests.post(uri, headers=headers, data='null')
 
-    def download_file(self, files):
-        print("/download_file")
-        uri = 'https://content.dropboxapi.com/2/files/download'
-        for file in files:
-            headers = {
-            'Authorization': f'Bearer {self._access_token}',
-            'Content-Type': 'application/octet-stream',
-            'Dropbox-API-Arg': json.dumps({
-                'path': file
-            })
-        }
-            response = requests.post(uri, headers=headers)
-            if response.status_code == 200:
-                print("File downloaded successfully.")
-                with open(file.split("/")[-1], 'wb') as f:
-                    f.write(response.content)
-            else:
-                print("Error downloading file.")
-                print(response.content)
-                return False
-        return True
-
-    def whoami(self):
-        print("/whoami")
-        uri = 'https://api.dropboxapi.com/2/users/get_current_account'
-        headers = {
-            'Authorization': f'Bearer {self._access_token}',
-        }
-        response = requests.post(uri, headers=headers)
         if response.status_code == 200:
-            print("User info obtained successfully.")
-            return json.loads(response.content)
+            data = response.json()
+            # La API devuelve los datos en bytes, los pasamos a Megabytes
+            used = data['used'] / (1024 * 1024)
+            # 'allocation' puede variar según el tipo de cuenta
+            if 'allocated' in data['allocation']:
+                total = data['allocation']['allocated'] / (1024 * 1024)
+            else:
+                total = 0
+            return used, total
         else:
-            print("Error obtaining user info.")
-            print(response.content)
-            return None
+            return None, None

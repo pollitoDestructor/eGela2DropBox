@@ -6,6 +6,7 @@ import Dropbox
 import helper
 import time
 from urllib.parse import unquote
+from tkinter import messagebox
 
 ##########################################################################################################
 
@@ -117,6 +118,25 @@ def ejecutar_busqueda():
     msg_listbox1.delete(0, tk.END) # Limpia los PDFs actuales
     for res in resultados:
         msg_listbox1.insert(tk.END, res['pdf_name']) # Inserta los PDFs filtrados
+
+
+def show_storage():
+    used, total = dropbox.get_storage_usage()
+    if used is not None:
+        popup = tk.Toplevel(newroot)
+        popup.geometry('250x100')
+        popup.title('Dropbox Storage')
+        helper.center(popup)
+
+        tk.Label(popup, text="Uso de Almacenamiento", font=('Arial', 10, 'bold')).pack(pady=5)
+        info_text = f"Usado: {used:.2f} MB"
+        if total > 0:
+            info_text += f"\nTotal: {total:.2f} MB"
+
+        tk.Label(popup, text=info_text).pack(pady=5)
+        tk.Button(popup, text="Cerrar", command=popup.destroy).pack()
+    else:
+        messagebox.showerror("Error", "No se pudo obtener la información del espacio.")
 
 ##########################################################################################################
 
@@ -270,7 +290,10 @@ button2 = tk.Button(frame2, borderwidth=4, background="red", text="Delete", widt
 button2.pack(padx=2, pady=2)
 button3 = tk.Button(frame2, borderwidth=4, text="Create folder", width=10, pady=8, command=create_folder)
 button3.pack(padx=2, pady=2)
+button4 = tk.Button(frame2, borderwidth=4, background="#4CAF50", fg="white", text="Storage Info", width=10, pady=8, command=show_storage)
+button4.pack(padx=2, pady=2)
 frame2.grid(row=1, column=3, ipadx=10, ipady=10)
+
 
 for each in pdfs:
     msg_listbox1.insert(tk.END, each['pdf_name'])
