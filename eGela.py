@@ -41,7 +41,9 @@ class eGela:
         else:
             print("Error al obtener MoodleSessionegela y logintoken.")
             print(respuesta1.status_code)
-            exit(1)
+            popup.destroy()
+            messagebox.showinfo("Alert Message", "Login incorrect!")
+            return
 
         progress = 25
         progress_var.set(progress)
@@ -66,16 +68,18 @@ class eGela:
         print(f'Solicitud2:\n\t{metodo} {uri}')
         print(f'\t{cuerpo}')
         print(f'Respuesta2:\n\t{respuesta2.status_code} {respuesta2.reason}')
-        print(f'\t{respuesta2.headers["Location"]}\n\t{respuesta2.headers["Set-Cookie"]}')
+        print(f'\t{respuesta2.headers.get("Location")}\n\t{respuesta2.headers.get("Set-Cookie")}')
 
-        if respuesta2.status_code == 303:
+        if respuesta2.status_code == 303 and respuesta2.headers.get("Set-Cookie"):
             # Obtenemos la cabecera Location
             location = respuesta2.headers['Location']
             MoodleSessionegela = respuesta2.headers['Set-Cookie'].split('MoodleSessionegela=')[1].split(';')[0]
         else:
             print("Error al autenticarse. Revisa tus credenciales.")
             print(respuesta2.status_code)
-            exit(1)
+            popup.destroy()
+            messagebox.showinfo("Alert Message", "Login incorrect!")
+            return
 
         progress = 50
         progress_var.set(progress)
@@ -98,8 +102,9 @@ class eGela:
         if respuesta3.status_code != 303:
             print("Error al autenticarse. Revisa tus credenciales.")
             print(respuesta3.status_code)
-            # print(respuesta3.text)
-            exit(1)
+            popup.destroy()
+            messagebox.showinfo("Alert Message", "Login incorrect!")
+            return
         else:
             # Obtenemos la cabecera Location
             location = respuesta3.headers['Location']
@@ -141,7 +146,6 @@ class eGela:
             self._curso = link_asignatura
         else:
             messagebox.showinfo("Alert Message", "Login incorrect!")
-            exit(1)
 
     def get_pdf_refs(self):
         popup, progress_var, progress_bar = helper.progress("get_pdf_refs", "Downloading PDF list...")
