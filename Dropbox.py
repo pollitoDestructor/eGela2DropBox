@@ -189,8 +189,10 @@ class Dropbox:
             # 'allocation' puede variar según el tipo de cuenta
             if 'allocated' in data['allocation']:
                 total = data['allocation']['allocated'] / (1024 * 1024)
+                restante = total - used
             else:
                 total = 0
-            return used, total
+                restante = 0
+            return used, total, restante
         else:
             return None, None

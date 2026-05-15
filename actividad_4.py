@@ -7,6 +7,7 @@ import helper
 import time
 from urllib.parse import unquote
 from tkinter import messagebox
+import tkinter.ttk as ttk
 
 ##########################################################################################################
 
@@ -121,20 +122,46 @@ def ejecutar_busqueda():
 
 
 def show_storage():
-    used, total = dropbox.get_storage_usage()
+    used, total, restante = dropbox.get_storage_usage()
     if used is not None:
         popup = tk.Toplevel(newroot)
-        popup.geometry('250x100')
         popup.title('Dropbox Storage')
-        helper.center(popup)
+        # No fijamos geometry para que se ajuste al contenido
+        if os.name == 'nt':
+            popup.iconbitmap('favicon.ico')
 
-        tk.Label(popup, text="Uso de Almacenamiento", font=('Arial', 10, 'bold')).pack(pady=5)
-        info_text = f"Usado: {used:.2f} MB"
+        # Contenedor principal
+        main_frame = tk.Frame(popup, padx=20, pady=15)
+        main_frame.pack()
+
+        tk.Label(main_frame, text="Uso de Almacenamiento", font=('Arial', 10, 'bold')).pack(pady=(0, 10))
+
+        # --- BARRA DE PROGRESO ---
+        # Calculamos el porcentaje: (Usado / Total) * 100
+        porcentaje = (used / total * 100) if total > 0 else 0
+
+        progress_bar = ttk.Progressbar(main_frame, orient='horizontal', length=200, mode='determinate')
+        progress_bar.pack(pady=5)
+        progress_bar['value'] = porcentaje
+
+        # Etiqueta de porcentaje
+        tk.Label(main_frame, text=f"{porcentaje:.2f}% ocupado", font=('Arial', 8, 'italic')).pack()
+
+        # --- TEXTO DETALLADO ---
+        info_text = f"Usado: {used:.2f} MB\n"
         if total > 0:
-            info_text += f"\nTotal: {total:.2f} MB"
+            info_text += f"Total: {total:.2f} MB\n"
+        if restante > 0:
+            info_text += f"Disponible: {restante:.2f} MB"
 
-        tk.Label(popup, text=info_text).pack(pady=5)
-        tk.Button(popup, text="Cerrar", command=popup.destroy).pack()
+        tk.Label(main_frame, text=info_text, justify=tk.LEFT).pack(pady=10)
+
+        # --- BOTÓN CERRAR ---
+        tk.Button(main_frame, text="Cerrar", width=10, command=popup.destroy).pack(pady=(5, 0))
+
+        # Ajustar
+        popup.update_idletasks()
+        helper.center(popup)
     else:
         messagebox.showerror("Error", "No se pudo obtener la información del espacio.")
 
