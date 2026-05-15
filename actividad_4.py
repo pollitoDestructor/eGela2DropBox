@@ -28,32 +28,41 @@ def make_listbox(messages_frame):
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     return msg_listbox
 
+
 def transfer_files():
     popup, progress_var, progress_bar = helper.progress("transfer_file", "Transfering files...")
     progress = 0
     progress_var.set(progress)
     progress_bar.update()
+
+    if not selected_items1:
+        popup.destroy()
+        return
+
     progress_step = float(100.0 / len(selected_items1))
 
-    for each in selected_items1:
-        pdf_name, pdf_file = egela.get_pdf(each)
+    for nombre_pdf in selected_items1:
+        # Buscamos el ÍNDICE del PDF que coincide con el nombre
+        indice_original = next((i for i, p in enumerate(pdfs) if p['pdf_name'] == nombre_pdf), None)
 
-        progress_bar.update()
-        newroot.update()
+        if indice_original is not None:
+            # Ahora enviamos el entero 'indice_original'
+            pdf_name, pdf_file = egela.get_pdf(indice_original)
 
-        if dropbox._path == "/":
-            path = "/" + unquote(pdf_name)
-            print("----------------------: " + pdf_name)
-            print("----------------------: " + unquote(pdf_name))
-        else:
-            path = dropbox._path + "/" + pdf_name
-        dropbox.transfer_file(path, pdf_file)
+            progress_bar.update()
+            newroot.update()
+
+            if dropbox._path == "/":
+                path = "/" + unquote(pdf_name)
+            else:
+                path = dropbox._path + "/" + pdf_name
+
+            dropbox.transfer_file(path, pdf_file)
 
         progress += progress_step
         progress_var.set(progress)
         progress_bar.update()
         newroot.update()
-
         time.sleep(0.1)
 
     popup.destroy()
@@ -170,10 +179,14 @@ def show_storage():
 def check_credentials(event=None):
     egela.check_credentials(ldapuser, ldapass)
 
+
 def on_selecting1(event):
     global selected_items1
     widget = event.widget
-    selected_items1 = widget.curselection()
+    selection = widget.curselection()
+
+    # Guardamos los NOMBRES de los archivos seleccionados, no los índices
+    selected_items1 = [widget.get(i) for i in selection]
     print(selected_items1)
 
 def on_selecting2(event):
